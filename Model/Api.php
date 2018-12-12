@@ -247,6 +247,7 @@ class Api
             $this->general->addTolog('Update Reviews', $e->getMessage());
             return $this->general->createResponseError($e);
         }
+    }
 
     /**
      * Retrieve new client token.
