@@ -216,32 +216,37 @@ class Api
             $responseCode = $curl->getInfo(CURLINFO_HTTP_CODE);
             $result = json_decode($response, true);
 
-            if (!empty($result['error'])) {
-                if ($result['error'] == 'No access') {
-                    $this->rev->setClientToken('', $data['store_id']);
-                    $msg = __('Could nog fetch new reviews, error: No access');
+            if(array_key_exists('success', $result)) {
+                if( $result['success'] ) {
+                    $result = [
+                        'status'         => 'success',
+                        'review_summary' => $result['data'][0]['review_summary'],
+                        'shop'           => $result['data'][0]['shop']
+                    ];
 
-                    return $this->general->createResponseError($msg, 'token-error');
+                    return $result;
+                } else {
+                    // $result['success'] === false;
+                    $data['client_token'] = $this->getNewClientToken($data);
+                    if (empty($data['client_token'])) {
+                        $msg = __('Tried to fetch new token, but could not fetch new client token');
+                        return $this->general->createResponseError($msg);
+                    } else {
+                        $this->rev->setClientToken($data['client_token'], $data['store_id']);
+                        // Need them stats
+                        return $this->updateReviewStats($data);
+                    }
                 }
-            }
-            if (!empty($result['success'])) {
-                $result = [
-                    'status'         => 'success',
-                    'review_summary' => $result['data'][0]['review_summary'],
-                    'shop'           => $result['data'][0]['shop']
-                ];
-
-                return $result;
+            } else {
+                // error in request nothing came back
+                $msg = __('Could not fetch new reviews, response code: ' . $responseCode);
+                return $this->general->createResponseError($msg);
             }
 
-            $msg = __('Could not fetch new reviews, response code: ' . $responseCode);
-
-            return $this->general->createResponseError($msg);
         } catch (\Exception $e) {
             $this->general->addTolog('Update Reviews', $e->getMessage());
             return $this->general->createResponseError($e);
         }
-    }
 
     /**
      * Retrieve new client token.
